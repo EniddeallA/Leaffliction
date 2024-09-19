@@ -2,3 +2,6 @@ images/
 transformed/
 result.json
 leaves.zip
+*.pth
+*.jpg
+*.json

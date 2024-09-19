@@ -4,3 +4,4 @@ seaborn
 torchvision
 Pillow
 plantcv
+flake8
