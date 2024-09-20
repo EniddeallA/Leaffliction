@@ -23,17 +23,17 @@ class PlantDiseaseDataset(Dataset):
             with open('data.json', 'r') as json_file:
                 data = json.load(json_file)
             if data["root"] == self.root_dir and len(data["image_paths"]) == total_images:
-                print("in root")
+                print("fetching images from privious launch!")
                 self.image_paths = data["image_paths"]
                 self.labels = data["labels"]
                 self.classes = data["classes"]
                 return
-        print("in fetch")
         self.fetch_images()
         self.balance_data(total_images)
 
 
     def fetch_images(self):
+        print("fetching images...")
         def assignImages(folder_path, image_paths : list):
             for img_file in os.listdir(folder_path):
                 file_path = os.path.join(folder_path, img_file)
@@ -53,6 +53,7 @@ class PlantDiseaseDataset(Dataset):
                 assignImages(disease_folder_path, self.imageperclass[disease_folder]["image_paths"])
 
     def balance_data(self, total_images=100):
+        print("balancing data!")
         if total_images < self.MinRetreiveImagesLen:
             raise Exception(f"Minimum number of images required is {self.MinRetreiveImagesLen}. {total_images} is too low!")
 
@@ -132,7 +133,6 @@ def fit_model(model : CustomCNN, train_loader : DataLoader, val_loader : DataLoa
         running_loss = 0.0
         correct = 0
         total = 0
-        print(f"Epoch [{epoch}/{num_epochs}]")
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
 
@@ -176,10 +176,16 @@ if __name__ == "__main__":
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     dataset = PlantDiseaseDataset("./images", total_images=1000, transform=train_transform) # set data
+    print("splitting data!")
     train_loader, val_loader = split_train_data(dataset)
+    print("setting up model!")
     model = CustomCNN(len(dataset.classes))
+    print("setting up device!")
     device = torch.device("cpu")
     model = model.to(device)
+    print("setting up loss function")
     criterion = nn.CrossEntropyLoss()
+    print("setting up optimizer")
     optimizer = optim.Adam(model.parameters(), lr=0.001)
+    print("Training begging")
     fit_model(model, train_loader, val_loader, 10, device, criterion, optimizer)

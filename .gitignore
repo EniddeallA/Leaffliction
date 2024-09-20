@@ -5,3 +5,4 @@ leaves.zip
 *.pth
 *.jpg
 *.json
+*env*
