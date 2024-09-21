@@ -1,4 +1,4 @@
-import os, random, json
+import os, random, json, sys
 from PIL import Image
 import torch.utils
 import torch.utils.data
@@ -12,7 +12,7 @@ import torch.optim as optim
 class PlantDiseaseDataset(Dataset):
     MinRetreiveImagesLen = 100
     authorizedExtentionImages = ['.jpg', '.JPG', '.png', '.jpeg']
-    def __init__(self, root_dir, total_images=100, transform=None):
+    def __init__(self, root_dir, total_images=sys.maxsize, transform=None):
         self.root_dir = root_dir
         self.transform = transform
         self.image_paths = []
@@ -52,7 +52,7 @@ class PlantDiseaseDataset(Dataset):
             if os.path.isdir(disease_folder_path):
                 assignImages(disease_folder_path, self.imageperclass[disease_folder]["image_paths"])
 
-    def balance_data(self, total_images=100):
+    def balance_data(self, total_images):
         print("balancing data!")
         if total_images < self.MinRetreiveImagesLen:
             raise Exception(f"Minimum number of images required is {self.MinRetreiveImagesLen}. {total_images} is too low!")
@@ -60,7 +60,9 @@ class PlantDiseaseDataset(Dataset):
         min_images_per_class = min(len(data["image_paths"]) for data in self.imageperclass.values())
         num_classes = len(self.imageperclass)
         if (min_images_per_class * num_classes) < total_images:
-            raise Exception(f"Total images requested: {total_images}, but the maximum available is {min_images_per_class * num_classes}.")
+            print(f"Warning: Total images requested: {total_images if not total_images == sys.maxsize else "Max size int"}, but the maximum available is {min_images_per_class * num_classes}.")
+            print("Setting up total_images to the lowest number of images for balancing")
+            total_images = min_images_per_class * num_classes
 
         images_per_class = total_images // num_classes
         remaining_images = total_images % num_classes
@@ -71,9 +73,10 @@ class PlantDiseaseDataset(Dataset):
             sampled_paths = random.sample(data["image_paths"], num_to_retrieve)
             self.image_paths.extend(sampled_paths)
             self.labels.extend([data["label"]] * num_to_retrieve)
-            data = {"image_paths":self.image_paths, "labels":self.labels, "classes":self.classes, "root":self.root_dir}
-            with open('data.json', 'w') as json_file:
-                json.dump(data, json_file, indent=4)
+
+        data = {"image_paths":self.image_paths, "labels":self.labels, "classes":self.classes, "root":self.root_dir}
+        with open('data.json', 'w') as json_file:
+            json.dump(data, json_file, indent=4)
 
     def __len__(self):
         return len(self.image_paths)
@@ -91,15 +94,14 @@ class PlantDiseaseDataset(Dataset):
 class CustomCNN(nn.Module):
     def __init__(self, num_classes):
         super(CustomCNN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)  # First convolutional layer
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)  # Second convolutional layer
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)  # Third convolutional layer
-        self.pool = nn.MaxPool2d(2, 2)  # Max pooling layer
-        self.fc1 = nn.Linear(self._get_conv_output_size(), 512)  # Fully connected layer
-        self.fc2 = nn.Linear(512, num_classes)  # Output layer with number of classes
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.fc1 = nn.Linear(self._get_conv_output_size(), 256)
+        self.fc2 = nn.Linear(256, num_classes)
 
     def _get_conv_output_size(self):
-        # Create a dummy tensor to determine the output size after convolution and pooling
         with torch.no_grad():
             dummy_input = torch.zeros(1, 3, 256, 256)
             x = self.pool(F.relu(self.conv1(dummy_input)))
@@ -108,20 +110,20 @@ class CustomCNN(nn.Module):
             return x.numel()
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))  # Apply ReLU activation and pooling after conv1
-        x = self.pool(F.relu(self.conv2(x)))  # Apply ReLU activation and pooling after conv2
-        x = self.pool(F.relu(self.conv3(x)))  # Apply ReLU activation and pooling after conv3
-        x = x.view(x.size(0), -1)  # Flatten the output
-        x = F.relu(self.fc1(x))  # Fully connected layer with ReLU
-        x = self.fc2(x)  # Final output layer
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(F.relu(self.conv3(x)))
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         return x
 
 def split_train_data(dataset : PlantDiseaseDataset):
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
 
     return train_loader, val_loader
 
@@ -170,22 +172,25 @@ def fit_model(model : CustomCNN, train_loader : DataLoader, val_loader : DataLoa
     print("Training complete. Model saved.")
 
 if __name__ == "__main__":
-    train_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    dataset = PlantDiseaseDataset("./images", total_images=1000, transform=train_transform) # set data
-    print("splitting data!")
-    train_loader, val_loader = split_train_data(dataset)
-    print("setting up model!")
-    model = CustomCNN(len(dataset.classes))
-    print("setting up device!")
-    device = torch.device("cpu")
-    model = model.to(device)
-    print("setting up loss function")
-    criterion = nn.CrossEntropyLoss()
-    print("setting up optimizer")
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    print("Training begging")
-    fit_model(model, train_loader, val_loader, 10, device, criterion, optimizer)
+    try:
+        train_transform = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        dataset = PlantDiseaseDataset("./images", total_images=1000, transform=train_transform)
+        print("splitting data!")
+        train_loader, val_loader = split_train_data(dataset)
+        print("setting up model!")
+        model = CustomCNN(len(dataset.classes))
+        print("setting up device!")
+        device = torch.device("cpu")
+        model = model.to(device)
+        print("setting up loss function")
+        criterion = nn.CrossEntropyLoss()
+        print("setting up optimizer")
+        optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=1e-5)
+        print("Training begging")
+        fit_model(model, train_loader, val_loader, 10, device, criterion, optimizer)
+    except Exception as e:
+        print(f"Error: {e}")
