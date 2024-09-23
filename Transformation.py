@@ -1,50 +1,48 @@
 from plantcv import plantcv as pcv
-import os
+import numpy as np
+import random
+from PIL import Image
 
-def gaussian_blur(mask):
-    pcv.gaussian_blur(img=mask, ksize=(3, 3))
+class PlantCVTransforms:
+    def __init__(self, debug = None):
+        if debug not in [None, "plot", "print"]:
+            raise Exception(f"debug must be None, plot or print; {debug} inserted!")
+        pcv.params.debug = debug
 
-def apply_mask(image, mask):
-    pcv.apply_mask(img=image, mask=mask, mask_color='white')
+    def threshold_binary(self, image, togray = False):
+        img = pcv.rgb2gray_lab(rgb_img=image, channel="a") if togray else image
+        return pcv.threshold.binary(img, threshold=119, object_type="dark")
 
-def rect_roi(image):
-    pcv.roi.rectangle(img=image, x=35, y=8, h=235, w=200)
+    def gaussian_blur(self, image):
+        return pcv.gaussian_blur(img=image, ksize=(3, 3))
 
-def shape_analysis(image, mask):
-    pcv.analyze.size(img=image, labeled_mask=mask)
+    def apply_mask(self, image):
+        mask = self.threshold_binary(image)
+        return pcv.apply_mask(img=image, mask=mask, mask_color='white')
 
-def x_pseudolandmarks(image, mask):
-    pcv.homology.x_axis_pseudolandmarks(img=image, mask=mask)
+    def shape_analysis(self, image):
+        mask = self.threshold_binary(image, True)
+        return pcv.analyze.size(img=image, labeled_mask=mask)
 
-def y_pseudolandmarks(image, mask):
-    pcv.homology.y_axis_pseudolandmarks(img=image, mask=mask)
+    # def x_pseudolandmarks(self, image):
+    #     mask = self.threshold_binary(image, True)
+    #     np.array([pcv.homology.x_axis_pseudolandmarks(img=image, mask=mask)]).astype(np.float32)
 
-def Transformation(src:str, dest:str = None):
-    def TranformeImage(imagesrc):
-        pcv.params.debug = "plot"
-        image, _, _ = pcv.readimage(filename=imagesrc)
-        grayscale_img = pcv.rgb2gray_lab(rgb_img=image, channel="a")
-        s_thresh = pcv.threshold.binary(grayscale_img, threshold=119, object_type="dark")
-        # Apply Transformations
-        gaussian_blur(s_thresh)
-        apply_mask(image, s_thresh)
-        rect_roi(image)
-        shape_analysis(image, s_thresh)
-        x_pseudolandmarks(image, s_thresh)
-        y_pseudolandmarks(image, s_thresh)
+    # def y_pseudolandmarks(self, image):
+    #     mask = self.threshold_binary(image, True)
+    #     return np.array([pcv.homology.y_axis_pseudolandmarks(img=image, mask=mask)]).astype(np.float32)
 
-    if src.lower().endswith('.jpg'):
-        TranformeImage(src)
-    else:
-        pcv.params.debug = "print"
-        if dest:
-            pcv.params.debug_outdir = dest
-            os.makedirs(f"{dest}", exist_ok=True)
-        else:
-            pcv.params.debug_outdir = f"{src}/Transformed"
-            os.makedirs(f"{src}/Transformed", exist_ok=True)
-        for img in os.listdir(src):
-            if img.lower().endswith('.jpg'):
-                TranformeImage(os.path.join(src, img))
+    def original_image(self, image):
+        return image
 
-    pcv.outputs.save_results(filename=f"result.json", outformat="json")
+    def __call__(self, image):
+        image = image if isinstance(image, np.ndarray) else np.array(image)
+        methods = [func for func in dir(self) if callable(getattr(self, func)) and not func.startswith("__")]
+        random_index = random.randint(0, len(methods) - 1)
+        return getattr(self, methods[random_index])(image)
+
+# img_path = "D:\\Projects\\42\\Leaffliction\\images\\Apple_healthy\\image (2).JPG"
+# # image = Image.open(img_path).convert('RGB')
+# j = PlantCVTransforms()
+# image, _, _ = pcv.readimage(filename=img_path)
+# j.x_pseudolandmarks(image)

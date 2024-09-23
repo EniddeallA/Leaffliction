@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from Transformation import PlantCVTransforms
 
 class PlantDiseaseDataset(Dataset):
     MinRetreiveImagesLen = 100
@@ -19,6 +20,7 @@ class PlantDiseaseDataset(Dataset):
         self.labels = []
         self.classes = {}
         self.imageperclass = {}
+
         if os.path.exists("data.json"):
             with open('data.json', 'r') as json_file:
                 data = json.load(json_file)
@@ -173,12 +175,17 @@ def fit_model(model : CustomCNN, train_loader : DataLoader, val_loader : DataLoa
 
 if __name__ == "__main__":
     try:
+        plantcv_transform = PlantCVTransforms()
         train_transform = transforms.Compose([
             transforms.Resize((256, 256)),
+            # transforms.Lambda(lambda img: plantcv_transform(img)),
+            transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 2.0)),
+            transforms.RandomGrayscale(0.1),
+            transforms.r(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        dataset = PlantDiseaseDataset("./images", total_images=1000, transform=train_transform)
+        dataset = PlantDiseaseDataset("./images", total_images=100, transform=train_transform)
         print("splitting data!")
         train_loader, val_loader = split_train_data(dataset)
         print("setting up model!")

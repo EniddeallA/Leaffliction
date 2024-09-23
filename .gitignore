@@ -6,3 +6,4 @@ leaves.zip
 *.jpg
 *.json
 *env*
+__pycache__

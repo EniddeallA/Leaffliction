@@ -1,10 +1,8 @@
-import os
-import sys
+import os, json, sys, torch
 from PIL import Image
-import torch
 from torchvision import transforms
-import json
 from train import CustomCNN
+
 
 def load_model(model_path, num_classes, device):
     model = CustomCNN(num_classes)
