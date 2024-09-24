@@ -1,11 +1,11 @@
 import os, json, sys, torch
 from PIL import Image
-from torchvision import transforms
-from train import CustomCNN
-
+from torchvision import transforms, models
 
 def load_model(model_path, num_classes, device):
-    model = CustomCNN(num_classes)
+    model = models.resnet18()
+    num_ftrs = model.fc.in_features
+    model.fc = torch.nn.Linear(num_ftrs, num_classes)
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     model.to(device)
     model.eval()
@@ -32,13 +32,15 @@ def main(image_paths):
 
     # Define transform (same as used in training)
     transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+            transforms.Resize((224, 224)),
+            transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 2.0)),
+            transforms.RandomGrayscale(0.1),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
     
     # Load the trained model
-    model = load_model('custom_cnn_plant_disease_model.pth', len(classes), device)
+    model = load_model('plant_disease_model.pth', len(classes), device)
     
     # Predict for each image
     for image_path in image_paths:

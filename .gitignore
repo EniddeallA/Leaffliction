@@ -4,6 +4,7 @@ result.json
 leaves.zip
 *.pth
 *.jpg
+*.png
 *.json
 *env*
 __pycache__
