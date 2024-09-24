@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 class PlantDiseaseDataset(Dataset):
     MinRetreiveImagesLen = 500
-    authExImgs = ['.jpg', '.JPG', '.png', '.jpeg']
+    authExImgs = list(Image.registered_extensions().keys())
 
     def __init__(self, root_dir, total_images=sys.maxsize, transform=None):
         self.root_dir = root_dir
@@ -18,8 +18,10 @@ class PlantDiseaseDataset(Dataset):
         self.classes = {}
         self.imageperclass = {}
 
-        if os.path.exists("data.json"):
-            with open('data.json', 'r') as json_file:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(base_path, "data.json")
+        if os.path.exists(data_path):
+            with open(data_path, 'r') as json_file:
                 data = json.load(json_file)
             if data["root"] == self.root_dir:
                 if len(data["image_paths"]) == total_images:
@@ -29,7 +31,7 @@ class PlantDiseaseDataset(Dataset):
                     self.classes = data["classes"]
                     return
         self.fetch_images()
-        self.balance_data(total_images)
+        self.balance_data(total_images, data_path)
 
     def fetch_images(self):
         print("fetching images...")
@@ -38,7 +40,7 @@ class PlantDiseaseDataset(Dataset):
             for file in os.listdir(folder_path):
                 file_path = os.path.join(folder_path, file)
                 if not os.path.isdir(file_path):
-                    if any([file.endswith(ex) for ex in self.authExImgs]):
+                    if any([file.lower().endswith(ex) for ex in self.authExImgs]):
                         image_paths.append(file_path)
                     else:
                         print(f"Warning: {file} file"
@@ -55,7 +57,7 @@ class PlantDiseaseDataset(Dataset):
                 img_paths = self.imageperclass[disease_folder]["image_paths"]
                 assignImages(disease_folder_path, img_paths)
 
-    def balance_data(self, total_images):
+    def balance_data(self, total_images, data_path):
         print("balancing data!")
         normlen = self.MinRetreiveImagesLen
         if total_images < normlen:
@@ -92,7 +94,7 @@ class PlantDiseaseDataset(Dataset):
             "classes": self.classes,
             "root": self.root_dir
                 }
-        with open('data.json', 'w') as json_file:
+        with open(data_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
 
     def __len__(self):

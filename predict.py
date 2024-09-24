@@ -1,20 +1,22 @@
 import os
-import json
 import sys
 import torch
 from PIL import Image
 from torchvision import transforms, models
 
 
-def load_model(model_path, num_classes, device):
+def load_model(model_path, device):
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(base_path, model_path)
+    model_load = torch.load(model_path, map_location=device, weights_only=True)
+    classes = model_load["classes"]
     model = models.resnet18()
     num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, num_classes)
-    model_load = torch.load(model_path, map_location=device, weights_only=True)
-    model.load_state_dict(model_load)
+    model.fc = torch.nn.Linear(num_ftrs, len(classes))
+    model.load_state_dict(model_load["model_state_dict"])
     model.to(device)
     model.eval()
-    return model
+    return model, classes
 
 
 def predict_image(model, image_path, transform, device):
@@ -31,13 +33,6 @@ def predict_image(model, image_path, transform, device):
 
 def main(image_paths):
     device = torch.device('cpu')
-
-    # Load saved data to get class labels
-    with open('data.json', 'r') as f:
-        data = json.load(f)
-    classes = data['classes']
-
-    # Define transform (same as used in training)
     mean_norm = [0.485, 0.456, 0.406]
     std_norm = [0.229, 0.224, 0.225]
     transform = transforms.Compose([
@@ -48,10 +43,7 @@ def main(image_paths):
             transforms.Normalize(mean=mean_norm, std=std_norm)
         ])
 
-    # Load the trained model
-    model = load_model('plant_disease_model.pth', len(classes), device)
-
-    # Predict for each image
+    model, classes = load_model('plant_disease_model.pth', device)
     for path in image_paths:
         if os.path.exists(path):
             pred_y = predict_image(model, path, transform, device)

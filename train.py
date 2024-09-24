@@ -1,4 +1,6 @@
 import os
+import argparse
+import shutil
 import torch
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms, models, utils
@@ -8,20 +10,24 @@ from PlantDiseaseDataset import PlantDiseaseDataset
 def save_images(dataset, dataset_type, classes):
     base_path = os.path.dirname(os.path.abspath(__file__))
     data_set_path = os.path.join(base_path, dataset_type)
-    if not os.path.exists(data_set_path):
-        os.makedirs(data_set_path)
-
+    if os.path.exists(data_set_path):
+        shutil.rmtree(data_set_path)
+    os.makedirs(data_set_path)
     image_number = {}
+    print('in')
     for image, label in dataset:
         image_number[label] = image_number.get(label, -1) + 1
-        img_path = f'{classes[label]}_image_{image_number[label]}.png'
+        img_path = f'{classes[str(label)]}_image_{image_number[label]}.png'
         utils.save_image(image, os.path.join(data_set_path, img_path))
+    print(f"{len(dataset)} images are saved in {data_set_path}.")
 
 
 def split_train_data(dataset: PlantDiseaseDataset, batch_size=32):
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_set, val_dataset = random_split(dataset, [train_size, val_size])
+    print(f"Train Data lenght = {len(train_set)}.")
+    print(f"Test Data lenght = {len(val_dataset)}.")
     save_images(val_dataset, 'valid_images', dataset.classes)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -73,9 +79,27 @@ def fit_model(model: models.ResNet, train_loader: DataLoader,
         val_accuracy = 100.0 * val_correct / val_total
         print(f'Validation Accuracy: {val_accuracy:.2f}%')
 
-    # Save the trained model
-    torch.save(model.state_dict(), 'plant_disease_model.pth')
-    print("Training complete. Model saved.")
+    return model
+
+
+def save_model(model: models.RegNet, classes):
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(base_path, 'plant_disease_model.pth')
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'classes': classes
+    }, model_path)
+
+
+def get_args():
+    parser = argparse.ArgumentParser(description="Train a leaves module.")
+    parser.add_argument("--data_train", type=str,
+                        required=True, help="Path to the datatrain folder")
+    parser.add_argument("--total_images", type=int,
+                        default=1000, help="Total Images to be retreived!")
+
+    args = parser.parse_args()
+    return args.data_train, args.total_images
 
 
 if __name__ == "__main__":
@@ -89,9 +113,10 @@ if __name__ == "__main__":
             transforms.ToTensor(),
             transforms.Normalize(mean=mean_norm, std=std_norm)
         ])
+        root_dir, total_images = get_args()
         kwargs = {
-            "root_dir": "./images",
-            "total_images": 500,
+            "root_dir": root_dir,
+            "total_images": total_images,
             "transform": train_transform
         }
         dataset = PlantDiseaseDataset(**kwargs)
@@ -110,7 +135,9 @@ if __name__ == "__main__":
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001,
                                      weight_decay=1e-5)
         print("Training begging")
-        fit_model(model, train_loader,
-                  val_loader, 10, device, criterion, optimizer)
+        model = fit_model(model, train_loader,
+                          val_loader, 10, device, criterion, optimizer)
+        print("Saving Model data.")
+        save_model(model, dataset.classes)
     except Exception as e:
         print(f"Error: {e}")
