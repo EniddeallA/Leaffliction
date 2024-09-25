@@ -52,7 +52,7 @@ class PlantDiseaseDataset(Dataset):
             disease_folder_path = os.path.join(self.root_dir, disease_folder)
             dict = {"label": label, "image_paths": []}
             self.imageperclass[disease_folder] = dict
-            self.classes[label] = disease_folder
+            self.classes[str(label)] = disease_folder
             if os.path.isdir(disease_folder_path):
                 img_paths = self.imageperclass[disease_folder]["image_paths"]
                 assignImages(disease_folder_path, img_paths)

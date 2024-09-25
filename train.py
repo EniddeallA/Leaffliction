@@ -14,10 +14,10 @@ def save_images(dataset, dataset_type, classes):
         shutil.rmtree(data_set_path)
     os.makedirs(data_set_path)
     image_number = {}
-    print('in')
     for image, label in dataset:
+        label = str(label)
         image_number[label] = image_number.get(label, -1) + 1
-        img_path = f'{classes[str(label)]}_image_{image_number[label]}.png'
+        img_path = f'{classes[label]}_image_{image_number[label]}.png'
         utils.save_image(image, os.path.join(data_set_path, img_path))
     print(f"{len(dataset)} images are saved in {data_set_path}.")
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
                                      weight_decay=1e-5)
         print("Training begging")
         model = fit_model(model, train_loader,
-                          val_loader, 10, device, criterion, optimizer)
+                          val_loader, 6, device, criterion, optimizer)
         print("Saving Model data.")
         save_model(model, dataset.classes)
     except Exception as e:
