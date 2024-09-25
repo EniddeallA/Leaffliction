@@ -40,7 +40,9 @@ class PlantDiseaseDataset(Dataset):
             for file in os.listdir(folder_path):
                 file_path = os.path.join(folder_path, file)
                 if not os.path.isdir(file_path):
-                    if any([file.lower().endswith(ex) for ex in self.authExImgs]):
+                    def norm(file, ex):
+                        return file.lower().endswith(ex)
+                    if any([norm(file, ex) for ex in self.authExImgs]):
                         image_paths.append(file_path)
                     else:
                         print(f"Warning: {file} file"

@@ -21,7 +21,8 @@ def load_model(model_path, device):
 
 
 def Display_Result(original_image, transformed_img, prediction):
-    fig, axs = plt.subplots(2, 2, figsize=(8, 6), gridspec_kw={'height_ratios': [3, 1]})
+    fig, axs = plt.subplots(2, 2, figsize=(8, 6),
+                            gridspec_kw={'height_ratios': [3, 1]})
 
     # Display the original image
     axs[0, 0].imshow(original_image)
@@ -29,7 +30,9 @@ def Display_Result(original_image, transformed_img, prediction):
     axs[0, 0].set_title('Original Image')
     # Display the transformed image
     transformed_img = transformed_img.squeeze(0).permute(1, 2, 0).numpy()
-    transformed_img = (transformed_img - transformed_img.min()) / (transformed_img.max() - transformed_img.min())
+    norm_calcul = transformed_img - transformed_img.min()
+    norm__calcul = transformed_img.max() - transformed_img.min()
+    transformed_img = norm_calcul / norm__calcul
     axs[0, 1].imshow(transformed_img)
     axs[0, 1].axis('off')  # Turn off axis
     axs[0, 1].set_title('Transformed Image')
@@ -39,10 +42,12 @@ def Display_Result(original_image, transformed_img, prediction):
     axs[1, 1].axis('off')
 
     # Add the DL classification text in the center
-    fig.text(0.5, 0.25, 'DL classification', ha='center', fontsize=14, weight='bold')
+    fig.text(0.5, 0.25, 'DL classification', ha='center',
+             fontsize=14, weight='bold')
 
     # Add the predicted class below
-    fig.text(0.5, 0.15, f'Class predicted : {prediction}', ha='center', fontsize=12, color='green')
+    fig.text(0.5, 0.15, f'Class predicted : {prediction}',
+             ha='center', fontsize=12, color='green')
 
     # Display the plot
     plt.tight_layout()
