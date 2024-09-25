@@ -28,7 +28,7 @@ def split_train_data(dataset: PlantDiseaseDataset, batch_size=32):
     train_set, val_dataset = random_split(dataset, [train_size, val_size])
     print(f"Train Data lenght = {len(train_set)}.")
     print(f"Test Data lenght = {len(val_dataset)}.")
-    save_images(val_dataset, 'valid_images', dataset.classes)
+    save_images(dataset, 'preprocess_images', dataset.classes)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
@@ -134,10 +134,10 @@ if __name__ == "__main__":
         print("setting up optimizer")
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001,
                                      weight_decay=1e-5)
-        print("Training begging")
-        model = fit_model(model, train_loader,
-                          val_loader, 6, device, criterion, optimizer)
-        print("Saving Model data.")
-        save_model(model, dataset.classes)
+        # print("Training begging")
+        # model = fit_model(model, train_loader,
+        #                   val_loader, 6, device, criterion, optimizer)
+        # print("Saving Model data.")
+        # save_model(model, dataset.classes)
     except Exception as e:
         print(f"Error: {e}")
